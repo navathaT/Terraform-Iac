@@ -7,7 +7,6 @@ pipeline {
     ARM_SUBSCRIPTION_ID = credentials('azure-subscription-id')
     ARM_TENANT_ID       = credentials('azure-tenant-id')
 
-    // Backend and tfvars filenames based on the branch name
     TF_BACKEND_CONFIG   = "backend-${env.BRANCH_NAME}.tfbackend"
     TF_VAR_FILE         = "${env.BRANCH_NAME}.tfvars"
   }
@@ -21,7 +20,15 @@ pipeline {
 
     stage('Terraform Init') {
       steps {
-        sh "terraform init -backend-config=${TF_BACKEND_CONFIG}"
+        script {
+          if (fileExists("${TF_BACKEND_CONFIG}")) {
+            echo "Using backend config: ${TF_BACKEND_CONFIG}"
+            sh "terraform init -backend-config=${TF_BACKEND_CONFIG}"
+          } else {
+            echo "Backend config ${TF_BACKEND_CONFIG} not found. Running default terraform init"
+            sh "terraform init"
+          }
+        }
       }
     }
 
@@ -34,7 +41,15 @@ pipeline {
         }
         stage('Plan') {
           steps {
-            sh "terraform plan -var-file=${TF_VAR_FILE} -out=tfplan-${env.BRANCH_NAME}"
+            script {
+              if (fileExists("${TF_VAR_FILE}")) {
+                echo "Using tfvars file: ${TF_VAR_FILE}"
+                sh "terraform plan -var-file=${TF_VAR_FILE} -out=tfplan-${env.BRANCH_NAME}"
+              } else {
+                echo "tfvars file ${TF_VAR_FILE} not found. Running plan without tfvars."
+                sh "terraform plan -out=tfplan-${env.BRANCH_NAME}"
+              }
+            }
           }
         }
       }
@@ -48,9 +63,7 @@ pipeline {
         }
       }
       steps {
-        script {
-          input message: "Approve deployment to ${env.BRANCH_NAME.toUpperCase()}?"
-        }
+        input message: "Approve deployment to ${env.BRANCH_NAME.toUpperCase()}?"
       }
     }
 
