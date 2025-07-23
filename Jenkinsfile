@@ -2,11 +2,11 @@ pipeline {
   agent any
 
   environment {
-    ARM_CLIENT_ID       = credentials('ARM_CLIENT_ID')
-    ARM_CLIENT_SECRET   = credentials('ARM_CLIENT_SECRET')
-    ARM_SUBSCRIPTION_ID = credentials('ARM_SUBSCRIPTION_ID')
-    ARM_TENANT_ID       = credentials('ARM_TENANT_ID')
-    TF_VAR_storage_key  = credentials('TF_STORAGE_KEY')
+    ARM_CLIENT_ID       = credentials('azure-client-id')
+    ARM_CLIENT_SECRET   = credentials('azure-client-secret')
+    ARM_SUBSCRIPTION_ID = credentials('azure-subscription-id')
+    ARM_TENANT_ID       = credentials('azure-tenant-id')
+    TF_VAR_storage_key  = credentials('45')
     TF_BACKEND_CONFIG   = "backend-${env.BRANCH_NAME}.tfbackend"
   }
 
