@@ -1,0 +1,5 @@
+# backend-dev.tfbackend
+resource_group_name  = "rg-staging"
+storage_account_name = "storacctdev123"
+container_name       = "tfstate"
+key                  = "staging.terraform.tfstate"

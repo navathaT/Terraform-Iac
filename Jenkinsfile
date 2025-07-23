@@ -6,8 +6,10 @@ pipeline {
     ARM_CLIENT_SECRET   = credentials('azure-client-secret')
     ARM_SUBSCRIPTION_ID = credentials('azure-subscription-id')
     ARM_TENANT_ID       = credentials('azure-tenant-id')
-    TF_VAR_storage_key  = credentials('45')
+
+    // Backend and tfvars filenames based on the branch name
     TF_BACKEND_CONFIG   = "backend-${env.BRANCH_NAME}.tfbackend"
+    TF_VAR_FILE         = "${env.BRANCH_NAME}.tfvars"
   }
 
   stages {
@@ -19,7 +21,7 @@ pipeline {
 
     stage('Terraform Init') {
       steps {
-        sh 'terraform init '
+        sh "terraform init -backend-config=${TF_BACKEND_CONFIG}"
       }
     }
 
@@ -32,7 +34,7 @@ pipeline {
         }
         stage('Plan') {
           steps {
-            sh "terraform plan -out=tfplan-${env.BRANCH_NAME}"
+            sh "terraform plan -var-file=${TF_VAR_FILE} -out=tfplan-${env.BRANCH_NAME}"
           }
         }
       }
@@ -46,13 +48,15 @@ pipeline {
         }
       }
       steps {
-        input message: "Approve Deployment to ${env.BRANCH_NAME.toUpperCase()}?"
+        script {
+          input message: "Approve deployment to ${env.BRANCH_NAME.toUpperCase()}?"
+        }
       }
     }
 
     stage('Terraform Apply') {
       steps {
-        sh 'terraform apply -auto-approve tfplan-${env.BRANCH_NAME}'
+        sh "terraform apply -auto-approve tfplan-${env.BRANCH_NAME}"
       }
     }
   }

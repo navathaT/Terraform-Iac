@@ -1,0 +1,6 @@
+# backend-prod.tfbackend
+resource_group_name  = "rg-prod"
+storage_account_name = "storacctprod123"
+container_name       = "tfstate"
+key                  = "prod.terraform.tfstate"
+
