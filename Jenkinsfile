@@ -1,92 +1,65 @@
-trigger:
-- main
+pipeline {
+  agent any
 
-pool:
-  vmImage: 'ubuntu-latest'
+  environment {
+    ARM_CLIENT_ID       = credentials('ARM_CLIENT_ID')
+    ARM_CLIENT_SECRET   = credentials('ARM_CLIENT_SECRET')
+    ARM_SUBSCRIPTION_ID = credentials('ARM_SUBSCRIPTION_ID')
+    ARM_TENANT_ID       = credentials('ARM_TENANT_ID')
+    TF_VAR_storage_key  = credentials('TF_STORAGE_KEY')
+    TF_BACKEND_CONFIG   = "backend-${env.BRANCH_NAME}.tfbackend"
+  }
 
-variables:
-  tfVersion: '1.6.0'
-  azureServiceConnection: 'AzureServiceConnectionName'
+  stages {
+    stage('Checkout Code') {
+      steps {
+        git url: 'https://github.com/navathaT/Terraform-Iac.git', branch: "${env.BRANCH_NAME}"
+      }
+    }
 
-stages:
-- stage: ValidateAndPlan_Dev
-  displayName: "Terraform Plan - Dev"
-  jobs:
-  - job: PlanDev
-    steps:
-    - task: TerraformInstaller@1
-      inputs:
-        terraformVersion: '$(tfVersion)'
+    stage('Terraform Init') {
+      steps {
+        sh 'terraform init -backend-config=${TF_BACKEND_CONFIG}'
+      }
+    }
 
-    - task: AzureCLI@2
-      inputs:
-        azureSubscription: '$(azureServiceConnection)'
-        scriptType: 'bash'
-        scriptLocation: 'inlineScript'
-        inlineScript: |
-          cd environments/dev
-          terraform init
-          terraform validate
-          terraform plan -var-file="dev.tfvars" -out=tfplan
+    stage('Terraform Validate & Plan') {
+      parallel {
+        stage('Validate') {
+          steps {
+            sh 'terraform validate'
+          }
+        }
+        stage('Plan') {
+          steps {
+            sh 'terraform plan -out=tfplan-${env.BRANCH_NAME}'
+          }
+        }
+      }
+    }
 
-- stage: Apply_Dev
-  displayName: "Terraform Apply - Dev"
-  dependsOn: ValidateAndPlan_Dev
-  jobs:
-  - deployment: ApplyDev
-    environment: 'dev'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: AzureCLI@2
-            inputs:
-              azureSubscription: '$(azureServiceConnection)'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                cd environments/dev
-                terraform init
-                terraform apply -auto-approve tfplan
+    stage('Approval for Staging/Prod') {
+      when {
+        anyOf {
+          branch 'staging'
+          branch 'prod'
+        }
+      }
+      steps {
+        input message: "Approve Deployment to ${env.BRANCH_NAME.toUpperCase()}?"
+      }
+    }
 
-- stage: Apply_Staging
-  displayName: "Terraform Apply - Staging"
-  dependsOn: Apply_Dev
-  jobs:
-  - deployment: ApplyStaging
-    environment: 'staging'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: AzureCLI@2
-            inputs:
-              azureSubscription: '$(azureServiceConnection)'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                cd environments/staging
-                terraform init
-                terraform plan -var-file="staging.tfvars" -out=tfplan
-                terraform apply -auto-approve tfplan
+    stage('Terraform Apply') {
+      steps {
+        sh 'terraform apply -auto-approve tfplan-${env.BRANCH_NAME}'
+      }
+    }
+  }
 
-- stage: Apply_Prod
-  displayName: "Terraform Apply - Prod"
-  dependsOn: Apply_Staging
-  jobs:
-  - deployment: ApplyProd
-    environment: 'prod'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: AzureCLI@2
-            inputs:
-              azureSubscription: '$(azureServiceConnection)'
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                cd environments/prod
-                terraform init
-                terraform plan -var-file="prod.tfvars" -out=tfplan
-                terraform apply -auto-approve tfplan
+  post {
+    always {
+      cleanWs()
+    }
+  }
+}
