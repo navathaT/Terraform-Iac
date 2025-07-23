@@ -32,7 +32,7 @@ pipeline {
         }
         stage('Plan') {
           steps {
-            sh 'terraform plan -out=tfplan-${env.BRANCH_NAME}'
+            sh "terraform plan -out=tfplan-${env.BRANCH_NAME}"
           }
         }
       }
