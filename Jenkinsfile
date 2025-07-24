@@ -1,4 +1,5 @@
-pipeline {
+
+ pipeline {
   agent any
 
   environment {
@@ -15,23 +16,26 @@ pipeline {
       }
     }
 
-    stage('Debug') {
+    stage('Debug Workspace') {
       steps {
-        echo "Current directory and files:"
-        sh 'pwd; ls -l'
+        sh 'pwd'
+        sh 'ls -l'
       }
     }
 
     stage('Terraform Init') {
       steps {
         script {
-          def backendConfig = "backend-${env.BRANCH_NAME}.tfbackend"
-          if (fileExists(backendConfig)) {
-            echo "Using backend config: ${backendConfig}"
-            sh "terraform init -backend-config=${backendConfig}"
-          } else {
-            echo "Backend config ${backendConfig} not found, running default terraform init"
-            sh "terraform init"
+          def envDir = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'dev') ? 'dev' : env.BRANCH_NAME
+          dir(envDir) {
+            def backendConfig = "backend-${envDir}.tfbackend"
+            if (fileExists(backendConfig)) {
+              echo "Using backend config: ${backendConfig}"
+              sh "terraform init -backend-config=${backendConfig}"
+            } else {
+              echo "Backend config ${backendConfig} not found, running default terraform init"
+              sh "terraform init"
+            }
           }
         }
       }
@@ -40,20 +44,24 @@ pipeline {
     stage('Terraform Validate & Plan') {
       steps {
         script {
-          def varFile = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'dev') ? 'dev.tfvars' : "${env.BRANCH_NAME}.tfvars"
+          def envDir = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'dev') ? 'dev' : env.BRANCH_NAME
+          def varFile = "${envDir}/${envDir}.tfvars"
+
           if (!fileExists(varFile)) {
             error "Terraform var file '${varFile}' not found!"
           }
           echo "Using var file: ${varFile}"
 
-          parallel(
-            Validate: {
-              sh "terraform validate -var-file=${varFile}"
-            },
-            Plan: {
-              sh "terraform plan -var-file=${varFile} -out=tfplan-${env.BRANCH_NAME}"
-            }
-          )
+          dir(envDir) {
+            parallel(
+              Validate: {
+                sh "terraform validate -var-file=${envDir}.tfvars"
+              },
+              Plan: {
+                sh "terraform plan -var-file=${envDir}.tfvars -out=tfplan-${envDir}"
+              }
+            )
+          }
         }
       }
     }
@@ -72,7 +80,12 @@ pipeline {
 
     stage('Terraform Apply') {
       steps {
-        sh "terraform apply -auto-approve tfplan-${env.BRANCH_NAME}"
+        script {
+          def envDir = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'dev') ? 'dev' : env.BRANCH_NAME
+          dir(envDir) {
+            sh "terraform apply -auto-approve tfplan-${envDir}"
+          }
+        }
       }
     }
   }
