@@ -37,29 +37,36 @@ pipeline {
     }
 
     stage('Terraform Validate & Plan') {
-      parallel {
-        stage('Validate') {
-          steps {
-            sh 'terraform validate'
-            echo "Using var-file: ${TF_VAR_FILE}"
-
-          }
-        }
-        stage('Plan') {
-          steps {
-            script {
-              if (fileExists("${TF_VAR_FILE}")) {
-                echo "Using tfvars file: ${TF_VAR_FILE}"
-                sh "terraform plan -var-file=${TF_VAR_FILE} -out=tfplan-${env.BRANCH_NAME}"
-              } else {
-                echo "tfvars file ${TF_VAR_FILE} not found. Running plan without tfvars."
-                sh "terraform plan -out=tfplan-${env.BRANCH_NAME}"
-              }
-            }
+  parallel {
+    stage('Validate') {
+      steps {
+        script {
+          if (fileExists("${TF_VAR_FILE}")) {
+            echo "Using var-file for validate: ${TF_VAR_FILE}"
+            sh "terraform validate -var-file=${TF_VAR_FILE}"
+          } else {
+            echo "Var-file ${TF_VAR_FILE} not found, running validate without var-file"
+            sh "terraform validate"
           }
         }
       }
     }
+    stage('Plan') {
+      steps {
+        script {
+          if (fileExists("${TF_VAR_FILE}")) {
+            echo "Using tfvars file: ${TF_VAR_FILE}"
+            sh "terraform plan -var-file=${TF_VAR_FILE} -out=tfplan-${env.BRANCH_NAME}"
+          } else {
+            echo "tfvars file ${TF_VAR_FILE} not found. Running plan without tfvars."
+            sh "terraform plan -out=tfplan-${env.BRANCH_NAME}"
+          }
+        }
+      }
+    }
+  }
+}
+
 
     stage('Approval for Staging/Prod') {
       when {
