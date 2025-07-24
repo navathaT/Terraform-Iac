@@ -16,26 +16,18 @@
       }
     }
 
-    stage('Debug Workspace') {
-      steps {
-        sh 'pwd'
-        sh 'ls -l'
-      }
-    }
-
     stage('Terraform Init') {
       steps {
         script {
           def envDir = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'dev') ? 'dev' : env.BRANCH_NAME
-          dir(envDir) {
-            def backendConfig = "backend-${envDir}.tfbackend"
-            if (fileExists(backendConfig)) {
-              echo "Using backend config: ${backendConfig}"
-              sh "terraform init -backend-config=${backendConfig}"
-            } else {
-              echo "Backend config ${backendConfig} not found, running default terraform init"
-              sh "terraform init"
-            }
+          def backendConfigFile = "${envDir}/backend-${envDir}.tfbackend"
+
+          if (fileExists(backendConfigFile)) {
+            echo "Using backend config: ${backendConfigFile}"
+            sh "terraform init -backend-config=${backendConfigFile}"
+          } else {
+            echo "Backend config ${backendConfigFile} not found, running default terraform init"
+            sh "terraform init"
           }
         }
       }
@@ -52,16 +44,14 @@
           }
           echo "Using var file: ${varFile}"
 
-          dir(envDir) {
-            parallel(
-              Validate: {
-                sh "terraform validate -var-file=${envDir}.tfvars"
-              },
-              Plan: {
-                sh "terraform plan -var-file=${envDir}.tfvars -out=tfplan-${envDir}"
-              }
-            )
-          }
+          parallel(
+            Validate: {
+              sh "terraform validate -var-file=${varFile}"
+            },
+            Plan: {
+              sh "terraform plan -var-file=${varFile} -out=tfplan-${envDir}"
+            }
+          )
         }
       }
     }
@@ -82,9 +72,7 @@
       steps {
         script {
           def envDir = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'dev') ? 'dev' : env.BRANCH_NAME
-          dir(envDir) {
-            sh "terraform apply -auto-approve tfplan-${envDir}"
-          }
+          sh "terraform apply -auto-approve tfplan-${envDir}"
         }
       }
     }
