@@ -7,8 +7,12 @@ pipeline {
     ARM_SUBSCRIPTION_ID = credentials('azure-subscription-id')
     ARM_TENANT_ID       = credentials('azure-tenant-id')
 
-    TF_BACKEND_CONFIG   = "backend-${env.BRANCH_NAME}.tfbackend"
-    TF_VAR_FILE         = "${env.BRANCH_NAME}.tfvars"
+ 
+  ...
+  TF_BACKEND_CONFIG   = "backend-${env.BRANCH_NAME}.tfbackend"
+  TF_VAR_FILE         = "${env.BRANCH_NAME == 'main' ? 'dev.tfvars' : env.BRANCH_NAME + '.tfvars'}"
+
+
   }
 
   stages {
@@ -37,6 +41,8 @@ pipeline {
         stage('Validate') {
           steps {
             sh 'terraform validate'
+            echo "Using var-file: ${TF_VAR_FILE}"
+
           }
         }
         stage('Plan') {
