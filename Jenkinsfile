@@ -46,7 +46,9 @@
 
           parallel(
             Validate: {
-              sh "terraform validate -var-file=${varFile}"
+              sh "terraform validate"
+             
+             
             },
             Plan: {
               sh "terraform plan -var-file=${varFile} -out=tfplan-${envDir}"
