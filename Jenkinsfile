@@ -8,7 +8,7 @@ pipeline {
     ARM_TENANT_ID       = credentials('azure-tenant-id')
 
  
-  ...
+  
   TF_BACKEND_CONFIG   = "backend-${env.BRANCH_NAME}.tfbackend"
   TF_VAR_FILE         = "${env.BRANCH_NAME == 'main' ? 'dev.tfvars' : env.BRANCH_NAME + '.tfvars'}"
 
